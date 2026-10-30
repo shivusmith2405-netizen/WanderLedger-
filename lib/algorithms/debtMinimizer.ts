@@ -54,6 +54,15 @@ export interface NetBalance {
   pledgedAmount: number;
 }
 
+export interface DirectPayment {
+  fromId: string;
+  fromName: string;
+  toId: string;
+  toName: string;
+  toUpi: string;
+  amount: number;
+}
+
 export interface SettlementTransaction {
   id: string;
   fromId: string;
@@ -63,6 +72,7 @@ export interface SettlementTransaction {
   toName: string;
   toAvatar: string;
   toUpiId: string;
+  toUpi: string; // alias for exact prompt specification
   amount: number;
   upiLink: string;
   note: string;
@@ -280,6 +290,7 @@ export function minimizeCashFlow(
         toName: creditor.name,
         toAvatar: creditor.avatar,
         toUpiId: creditor.upiId,
+        toUpi: creditor.upiId,
         amount: roundedAmount,
         upiLink: generateUpiUrl({
           payeeUpiId: creditor.upiId,
@@ -300,6 +311,86 @@ export function minimizeCashFlow(
   }
 
   return transactions;
+}
+
+/**
+ * Direct cash flow minimizer implementing the exact Phase 1 specification:
+ * - For every member: net = actualPaid - totalShare
+ * - Match negative debtors with positive creditors in minimum transactions.
+ * - Output: Array of direct payments: { fromId, fromName, toId, toName, toUpi, amount }
+ */
+export function minimizeDebts(
+  members: Array<{
+    id: string;
+    name: string;
+    upiId?: string;
+    actualPaid: number;
+    totalShare: number;
+  }>
+): DirectPayment[] {
+  interface Party {
+    id: string;
+    name: string;
+    toUpi: string;
+    amount: number;
+  }
+
+  const debtors: Party[] = [];
+  const creditors: Party[] = [];
+
+  for (const m of members) {
+    const net = m.actualPaid - m.totalShare;
+    const upi = m.upiId || `${m.name.toLowerCase().replace(/[^a-z0-9]/g, "")}@upi`;
+
+    if (net < -0.01) {
+      debtors.push({
+        id: m.id,
+        name: m.name,
+        toUpi: upi,
+        amount: Math.abs(net),
+      });
+    } else if (net > 0.01) {
+      creditors.push({
+        id: m.id,
+        name: m.name,
+        toUpi: upi,
+        amount: net,
+      });
+    }
+  }
+
+  debtors.sort((a, b) => b.amount - a.amount);
+  creditors.sort((a, b) => b.amount - a.amount);
+
+  const payments: DirectPayment[] = [];
+  let d = 0;
+  let c = 0;
+
+  while (d < debtors.length && c < creditors.length) {
+    const debtor = debtors[d];
+    const creditor = creditors[c];
+
+    const settleAmount = Math.min(debtor.amount, creditor.amount);
+
+    if (settleAmount >= 1) {
+      payments.push({
+        fromId: debtor.id,
+        fromName: debtor.name,
+        toId: creditor.id,
+        toName: creditor.name,
+        toUpi: creditor.toUpi,
+        amount: Math.round(settleAmount),
+      });
+    }
+
+    debtor.amount -= settleAmount;
+    creditor.amount -= settleAmount;
+
+    if (debtor.amount < 0.01) d++;
+    if (creditor.amount < 0.01) c++;
+  }
+
+  return payments;
 }
 
 /**

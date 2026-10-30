@@ -27,7 +27,7 @@ export const NextStopTile: React.FC<NextStopTileProps> = ({
   const activeStop = stops.find((s) => s.status === "active") || stops.find((s) => s.status === "upcoming") || stops[0];
 
   const handleLaunchMaps = (query: string) => {
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(query)}`;
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
     window.open(url, "_blank", "noopener,noreferrer");
   };
 

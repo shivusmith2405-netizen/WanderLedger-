@@ -227,8 +227,8 @@ export const MemberBalanceMatrix: React.FC<MemberBalanceMatrixProps> = ({
                     </div>
 
                     <div className="p-2 rounded-xl bg-gray-50 border border-gray-100">
-                      <div className="text-[10px] text-gray-500 font-bold uppercase truncate" title="Total Share Consumed">
-                        Total Share Consumed
+                      <div className="text-[10px] text-gray-500 font-bold uppercase truncate" title="Total Share">
+                        Total Share
                       </div>
                       <div
                         suppressHydrationWarning
@@ -252,10 +252,10 @@ export const MemberBalanceMatrix: React.FC<MemberBalanceMatrixProps> = ({
                   </div>
                 </div>
 
-                {/* Per-Member Budget Status: Exceeded Budget Alert vs. Budget Still Left */}
+                {/* Per-Member Budget Status: Over Budget Alert vs. Budget Still Left */}
                 <div className="mt-1 pt-3 border-t border-gray-200/60">
                   {isExceeded ? (
-                    /* Soft coral/warning bold alert badge */
+                    /* Soft coral/warning bold alert badge: Over Budget by */
                     <div className="p-3 rounded-2xl bg-[#FFE4E1] border-2 border-rose-400 text-rose-950 flex items-center justify-between shadow-sm animate-pulse-glow">
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 stroke-[2.5]" />
@@ -263,7 +263,7 @@ export const MemberBalanceMatrix: React.FC<MemberBalanceMatrixProps> = ({
                           suppressHydrationWarning
                           className="text-xs sm:text-sm font-black tracking-tight"
                         >
-                          ⚠️ Exceeded Budget by ₹{exceededAmount.toLocaleString("en-IN")}
+                          ⚠️ Over Budget by ₹{exceededAmount.toLocaleString("en-IN")}
                         </span>
                       </div>
                       <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white shrink-0">

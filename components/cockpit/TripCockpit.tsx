@@ -26,7 +26,8 @@ import { PollTile } from "@/components/bento/PollTile";
 import { FeedTile } from "@/components/bento/FeedTile";
 import { NextStopTile } from "@/components/bento/NextStopTile";
 import { SettleTile } from "@/components/bento/SettleTile";
-import { fireConfetti } from "@/lib/utils/confetti";
+import { fireConfetti, fireDoubleConfetti } from "@/lib/utils/confetti";
+import { BlindPoll } from "@/lib/types/trip";
 import {
   Compass,
   Share2,
@@ -53,6 +54,21 @@ export const TripCockpit: React.FC<TripCockpitProps> = ({ slug }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Poll state for Bento Tile 3
+  const [activePoll, setActivePoll] = useState<BlindPoll>({
+    id: `poll-${slug}`,
+    tripSlug: slug,
+    question: "Where should we have sunset dinner tonight?",
+    options: [
+      { id: "opt-1", text: "Curlies Beach Shack & Sundowner", votes: [] },
+      { id: "opt-2", text: "Thalassa Cliffside Greek Taverna", votes: [] },
+      { id: "opt-3", text: "Fisherman's Wharf Seafood Grill", votes: [] },
+    ],
+    totalVotersNeeded: 4,
+    isSealed: true,
+    createdAt: new Date().toISOString(),
+  });
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
@@ -70,6 +86,25 @@ export const TripCockpit: React.FC<TripCockpitProps> = ({ slug }) => {
         } else if (data.members.length > 0) {
           setActiveMemberId(data.members[0].id);
           localStorage.setItem(`wanderledger_active_member_${slug}`, data.members[0].id);
+        }
+
+        // Poll sync
+        try {
+          const cachedPolls = localStorage.getItem(`wanderledger_polls_${slug}`);
+          if (cachedPolls) {
+            const list = JSON.parse(cachedPolls);
+            if (list.length > 0) {
+              const first = list[0];
+              setActivePoll({
+                ...first,
+                tripSlug: slug,
+                totalVotersNeeded: data.members.length || 4,
+                isSealed: first.isSealed ?? true,
+              });
+            }
+          }
+        } catch {
+          // ignore
         }
       }
     } catch (err) {
@@ -108,6 +143,74 @@ export const TripCockpit: React.FC<TripCockpitProps> = ({ slug }) => {
     fireConfetti();
     showToast("Shareable link copied to clipboard!");
     setTimeout(() => setCopiedLink(false), 2500);
+  };
+
+  const handleVotePoll = (pollId: string, optionId: string, travelerId: string) => {
+    setActivePoll((prev) => {
+      const updatedOptions = prev.options.map((opt) => {
+        const filtered = opt.votes.filter((id) => id !== travelerId);
+        if (opt.id === optionId) {
+          return { ...opt, votes: [...filtered, travelerId] };
+        }
+        return { ...opt, votes: filtered };
+      });
+
+      const totalVotes = updatedOptions.reduce((sum, o) => sum + o.votes.length, 0);
+      const needed = trip?.members.length || prev.totalVotersNeeded || 4;
+      const isComplete = totalVotes >= needed;
+
+      if (isComplete && prev.isSealed) {
+        fireDoubleConfetti();
+        showToast("All members voted! Poll unsealed 🎉");
+      } else {
+        showToast("Ballot recorded in sealed poll 🔒");
+      }
+
+      const updated: BlindPoll = {
+        ...prev,
+        options: updatedOptions,
+        isSealed: isComplete ? false : prev.isSealed,
+      };
+
+      try {
+        localStorage.setItem(`wanderledger_polls_${slug}`, JSON.stringify([updated]));
+      } catch {
+        // ignore
+      }
+
+      return updated;
+    });
+  };
+
+  const handleToggleSeal = (pollId: string) => {
+    setActivePoll((prev) => {
+      const updated = { ...prev, isSealed: !prev.isSealed };
+      try {
+        localStorage.setItem(`wanderledger_polls_${slug}`, JSON.stringify([updated]));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  };
+
+  const handleCreatePoll = (question: string, options: string[]) => {
+    const newPoll: BlindPoll = {
+      id: `poll-${Date.now()}`,
+      tripSlug: slug,
+      question,
+      options: options.map((text, idx) => ({ id: `opt-${idx + 1}`, text, votes: [] })),
+      totalVotersNeeded: trip?.members.length || 4,
+      isSealed: true,
+      createdAt: new Date().toISOString(),
+    };
+    setActivePoll(newPoll);
+    try {
+      localStorage.setItem(`wanderledger_polls_${slug}`, JSON.stringify([newPoll]));
+    } catch {
+      // ignore
+    }
+    showToast("Created new blind group poll 🔒");
   };
 
   // Convert live members to Traveler interface for existing bento components
@@ -405,50 +508,25 @@ export const TripCockpit: React.FC<TripCockpitProps> = ({ slug }) => {
             onAddExpense={handleAddExpense}
           />
 
-          {/* Tile 3: 1-Col Next Waypoint with 1-Tap Google Maps */}
+          {/* Tile 3: 1-Col Blind Poll Status: Real-time sealed vote counter */}
+          <PollTile
+            poll={activePoll}
+            activeTravelerId={activeMemberId}
+            onVote={handleVotePoll}
+            onToggleSeal={handleToggleSeal}
+            onCreatePoll={handleCreatePoll}
+          />
+
+          {/* Tile 4: Span-2 Live Activity Feed with Receipt Thumbnail & Modal */}
+          <FeedTile
+            expenses={expenses}
+            travelers={travelers}
+          />
+
+          {/* Tile 5: 1-Col Next Waypoint with 1-Tap Google Maps */}
           <NextStopTile stops={itineraryStops} />
 
-          {/* Tile 4: 1-Col Group Voting Preview Tile */}
-          <div className="bg-white rounded-3xl p-6 shadow-bento border border-[#E6D090] flex flex-col justify-between col-span-1">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-2xl bg-[#4C9DB0] text-white flex items-center justify-center font-bold shadow-md">
-                  <Vote className="w-5 h-5 stroke-[2.2]" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-[#4C9DB0] uppercase tracking-wider block">
-                    Group Consensus
-                  </span>
-                  <span className="text-xs font-semibold text-[#173842]">Sealed Voting</span>
-                </div>
-              </div>
-
-              <Link
-                href={`/t/${slug}/vote`}
-                className="text-[11px] font-bold text-[#2D6B78] hover:underline"
-              >
-                All Polls →
-              </Link>
-            </div>
-
-            <div className="my-4 space-y-1">
-              <h4 className="text-sm font-extrabold text-[#173842]">
-                Dinner &amp; Activities Ballot
-              </h4>
-              <p className="text-xs text-gray-500">
-                Options stay masked until all {travelers.length} friends vote.
-              </p>
-            </div>
-
-            <Link
-              href={`/t/${slug}/vote`}
-              className="w-full py-2.5 px-3 rounded-2xl bg-[#173842] hover:bg-[#235560] text-[#FFEBAF] font-bold text-xs text-center shadow-md active:scale-95 transition-all"
-            >
-              Cast Ballot 🔒
-            </Link>
-          </div>
-
-          {/* Tile 5: 1-Col Settle & Debt Minimizer Tile */}
+          {/* Tile 6: 1-Col Settle & Debt Minimizer Tile */}
           <SettleTile
             transactions={settlementTransactions}
             netBalances={new Map()}
@@ -460,12 +538,6 @@ export const TripCockpit: React.FC<TripCockpitProps> = ({ slug }) => {
             totalInitialBudget={totalPledged}
             onCompleteSettlement={() => {}}
             onToast={showToast}
-          />
-
-          {/* Tile 6: Span-2 or Col-3 Live Activity Feed */}
-          <FeedTile
-            expenses={expenses}
-            travelers={travelers}
           />
         </div>
       </main>

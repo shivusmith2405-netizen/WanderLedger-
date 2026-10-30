@@ -306,12 +306,12 @@ export const SettleCockpit: React.FC<SettleCockpitProps> = ({ slug }) => {
             <AlertTriangle className="w-6 h-6 text-rose-600 shrink-0 mt-0.5 stroke-[2.5]" />
             <div>
               <h4 className="font-extrabold text-sm sm:text-base tracking-tight">
-                ⚠️ Exceeded Budget Warning Notice
+                ⚠️ Over Budget Warning Notice
               </h4>
               <p className="text-xs text-rose-900 mt-0.5 font-medium leading-relaxed">
                 {overBudgetMembers.map((m, i) => (
                   <span key={m.travelerId}>
-                    <strong>{m.name}</strong> has exceeded their initial budget by{" "}
+                    <strong>{m.name}</strong> is over budget by{" "}
                     <strong>₹{Math.round(m.overBudgetAmount).toLocaleString("en-IN")}</strong>
                     {i < overBudgetMembers.length - 1 ? ", " : "."}
                   </span>

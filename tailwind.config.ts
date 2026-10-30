@@ -20,6 +20,7 @@ const config: Config = {
         },
         moonstone: {
           DEFAULT: "#4C9DB0",
+          teal: "#4C9DB0",
           light: "#E6F4F7",
           medium: "#70B5C4",
           hover: "#3D8798",
@@ -39,6 +40,10 @@ const config: Config = {
           DEFAULT: "#FFFFFF",
           card: "#FFFFFF",
           muted: "#FAF7EF",
+        },
+        border: {
+          accent: "#E6D090",
+          teal: "#2D6B78",
         },
         accent: {
           teal: "#2D6B78",
